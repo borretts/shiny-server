@@ -46,6 +46,6 @@ ui = fluidPage(
        </ol>"),
   h4("Assessment"),
   "Successful completion of these activities will be assessed in class using the audience response system.",
-  hr("Acknowledgements"),
-  "The Ecological Modeling Learning Module was developed by Stuart R. Borrett with support from an ETEAL Grant from the Unviversity of North Carolina Wilmington"
+  h4("Acknowledgements"),
+  "This Ecological Modeling Learning Module was developed by Stuart R. Borrett with support from an ETEAL Grant from the Unviversity of North Carolina Wilmington"
   )
