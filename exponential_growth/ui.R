@@ -45,5 +45,7 @@ ui = fluidPage(
        <li>   Consider, under what conditions might real biological populations exhibit exponential growth?</li>
        </ol>"),
   h4("Assessment"),
-  "Successful completion of these activities will be assessed in class using the audience response system."
+  "Successful completion of these activities will be assessed in class using the audience response system.",
+  hr("Acknowledgements"),
+  "The Ecological Modeling Learning Module was developed by Stuart R. Borrett with support from an ETEAL Grant from the Unviversity of North Carolina Wilmington"
   )
