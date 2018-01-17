@@ -1,0 +1,356 @@
+---
+title: "enaR Tutorial: Worked example for the Cone Springs model"
+author: 
+- Stuart R. Borrett^[Department of Biology and Marine Biology and Center for Marine Science, University of North Carolina Wilmington & Duke Network Analysis Center, Social Science Research Institute, Duke University]
+date: Last updated - `r format(Sys.time(), '%d %B %Y')`
+output: 
+  html_document:
+    fig_caption: yes
+    toc: true
+    toc_depth: 2
+runtime: shiny
+---
+
+# Introduction
+This is a simplified tutorial for getting started with the **enaR** package.  It illustrates how to apply selected Ecological Network Analyses (ENA) to single model.  For brevity, this tutorial does not explain how to interpret the results; the user is directed to the literature for this.  This tutorial uses the "Cone Springs" model to illustrate the analyses and some of the results.  This  model was also used by Ulanowicz for his [Netwrk 4.2 software manual](https://www.cbl.umces.edu/~ulan/ntwk/netwrk.txt), which may facillitate comparisons.  For a more detialed description of the **enaR** software please see the [Vignette](https://cran.r-project.org/web/packages/enaR/vignettes/enaR-vignette.pdf) or [Borrett and Lau (2014)](http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12282/epdf).    
+
+<!-- insert figure -->
+![Cone Spring Model (Williams and Crouthamel, unpublished ms and Tilly
+ 1968) with flows in units of kcal/m2/y: (a) model components in matrix form (F is the flow matrix, z is a vector of inputs, r is a vector of respiration values, e is a vector of exports, and X is a vector of storages or biomass values) and (b) shows the model information in diagram form.](cone_spring.png){width=80%}
+
+
+## Preparing the Workspace
+To get started using **enaR**, the first step is to load the library along with the **network** library as follows.  It is also a good idea to clear the working memory when we start a new analysis
+
+```{r,  results="hide"}
+rm(list = ls())  # clears the working memory
+library(enaR)    # loads the enaR library
+library(network) # loads the network library
+```
+
+# Entering a model
+
+This software asssumes that the user has created a network model and is ready to analyze it.  Fore ENA to make sense, users should follow the modeling guidelines in [Fath et al. (2007)](https://people.clas.ufl.edu/ulan/files/Fath.pdf)  Thus, the first step is to enter a model, and there are several tools to help you accomplish this task.  Here I illustrate (1) entering model data by hand and using the *pack()* fuction to create the network data object, and (2) selecting an existing model from the library of models distributed with *enaR*.
+
+Users may have data stored in one of several common formats used by other ENA software.  *enaR* can read in several of these model formats using functions like *read.scor()*, *read.EcoNet()*, *read.nea()*, and *read.neam()*.  It also has several *write* functions to write models into other software input formats.
+
+## Enter Model using *pack()*
+
+As illustrated in the Cone Springs figure, the model information can be represented in both matrix (vector) format and in diagram form.  We will use the matrix form to enter the data into *enaR*.
+
+```{r}
+# --- Enter Model Information ---
+# enter flows as a vector, concatenating rows
+f = c( 0,0,0,0, 8881, 0,0,75, 0, 1600, 0,0,0, 370, 200, 0,0,0,0, 167, 0, 5205, 2309, 0, 0)
+F = matrix(f, nrow = 5, ncol = 5, byrow = TRUE) # create the flow matrix
+# add the row and column names to F
+rownames(F) = c('plants', 'bacteria', 
+                'detritivores', 'carnivores', 'detritus')
+colnames(F) = rownames(F)
+
+# inputs
+z = c(11184, 0,0,0, 635)
+
+# respirations
+r = c(2003, 3275, 1814, 203, 3108)
+
+# exports
+e = c(300, 255, 0, 0, 860)
+
+# storage (biomass in food web models)
+biomass = c(285, 117, 60, 17, 3580)
+
+# identify which nodes are living
+liv = c(TRUE, TRUE, TRUE, TRUE, FALSE)
+
+# --- build network data object for enaR ---
+
+cone = pack(flow = F, input = z, respiration = r, export = e, 
+            storage = biomass, living = liv)
+show(cone)
+
+# determine if the model is at steady state (as expected)
+ssCheck(cone)  
+```
+
+## Model Library
+
+If you do not yet have your own model to analyze, you can use one from the *enaR* model library.  This section shows you how to load the library, look at part of the list of model names included in the library, and then select the Cone Springs model for further analysis. 
+
+```{r}
+data(enaModels)  # loads library of models (stored as a list)
+model.names = names(enaModels)
+model.names[c(6,9,20,36,47)]
+model = enaModels[["Cone Springs"]]  # selects the Cone Springs model.
+model
+```
+
+The model is stored as a network data object with attributes for the network, nodes (vertices), and edges.  
+
+As many (but not all) of the ENA algorithms assume that the model is at steady state, we should first check this condition.
+
+```{r}
+ssCheck(model)
+```
+
+This model is at steady-state.  If it had not been, we could have applied the *balance()* function to apply one of several automated model balancing algorithms [(Allesina and Bondavalli 2003)](www.dsa.unipr.it/netanalysis/?download=AllesinaBondavalli2003.pdf).
+
+All of the model data informaition (matrices and vectros) is stored in the network data object.  If you need to access the pieces, you can use the *unpack()* function.
+
+```{r}
+unpack(model)
+```
+
+# Ecological Network Analysis
+The core ENA algorithms are collected into functions named based on the type of analysis performed.  I illustrate some of the more freqeuently used functions.  Notice that all matrices are oriented from row to column. 
+
+## Structural Analysis
+The structural analysis returns the system adjacency matrix (A) and a vector of structural network metrics (ns).
+```{r}
+s = enaStructure(model)
+attributes(s)
+show(s)
+```
+
+In this case we see that the model has 5 nodes, a network density (connectance) of 0.32, and a pathway proliferation rate ($\lambda_1(\mathbf{A})$) of 1.83.  This last indicator shows that the number of walks increase without bound as walk length increases at a rate of 1.83.  We can construct a plot to illustrate this phenomenon.
+
+```{r, echo = TRUE, fig2, fig.height = 3, fig.width = 5, fig.align = "center", fig.cap = "The number of walks from node 3 to 4 increases without bound as the walk length increases, which is termed 'pathway proliferation'."}
+# plot the number of walks from node 3 to 4 as walk length increases.
+# calculate the number of walks from 3 to 4 as walk length (k) increases.
+tw.34 = NA # initialize total walks from 3 to 4
+max.w.length = 20
+for(k in 1:max.w.length){
+  tw = mExp(s$A,k)           # matrix exponetiation [ mExp() is a function in enaR]
+  tw.34[k] = tw[3,4]
+}
+
+par(las = 1, mar = c(4,6,1,1)) # set plotting parameters
+
+plot(1:max.w.length, tw.34,  # create plot
+     type = "b",
+     lwd = 3, 
+     col = "blue",
+     pch = 20,
+     xlab = "Walk Length",
+     ylab = "Number of Walks")
+```
+
+## Flow Analysis
+Flow anlayses are comprised of methods based on Input--Output Analyses and Information based approaches.
+
+### Input--Output Flow Analyses
+This analysis uses the **enaFlow** function.
+
+```{r}
+f = enaFlow(model)
+attributes(f)
+
+f$T  # the throughlflow vector
+
+f$N  # output oriented flow intensity matrix
+
+f$ns # vector of whole-network metrics
+```
+
+We can visualize some of our results to better understand them.  For example this figure shows the ordered througflow vector (see [Borrett (2013)](http://dx.doi.org/10.1016/j.ecolind.2013.03.014) for one reason for why this might matter).
+
+```{r,echo = TRUE, fig3, fig.height = 4, fig.width = 5, fig.align = "center",fig.cap= "Rank ordered throughflow values for the Cone Springs model."}
+par(las = 1, mar = c(7,6,0,0),
+        oma = c(0,1,1,1), xpd=TRUE)
+o = order(f$T, decreasing = TRUE)
+bp = barplot(f$T[o], col = "black", 
+             border = NA, names.arg = NA )
+mtext(bquote(paste("Throughflow (",T[j],")")),
+        side = 2, las = 3, line = 3.5,
+        outer = FALSE)
+text(bp,-(.10 * max(f$T)),              # add node names
+     labels = names(f$T[o]),
+     srt = 45, adj = 1,
+     cex = 0.95)
+```
+
+The Input-Output flow analysis also calculates the the proportions of system throughFLOW (TST) derived from boundary, direct, and indirect flows.  This is a true partition of TST, so we can visualize it as portions of the whole.  
+
+```{r, echo = TRUE, fig4, fig.height = 2.5, fig.width = 5, fig.align = "center",fig.cap= "Proportion of Total System ThroughFLOW derived from boundary inputs, direct flows, and indirect flows."}
+ns = as.data.frame(f$ns)  # lets us access ns by name
+flow.partition = as.matrix(c(ns$BFI, ns$DFI, ns$IFI))
+bp = barplot(flow.partition, horiz = TRUE, xlim = c(0,1),
+        col = c("black","red","orange"),
+        xlab = "Proportion of Total System Throughflow")
+text(c(0.2,0.5,0.85), bp, 
+     labels = c("Boundary", "Direct","Indirect"), col = "white", cex = 0.85)
+```
+
+
+### Information Based Flow Analyses
+
+The information based analyses generates a set of whole netowrk metrics that includes informaiton like the _Flow Diversity_ (H), _Ascendency_ (ASC), the ratio of _Ascendency_ and _Capacity_ (ASC.CAP), the tetrapartite division of _Ascendnecy_, _Overhead_, and _Capacity_ among the _Inputs_, _Internal_, _Respirations_, and _Exports_, as well as the _robustness_ measure (A/C * log(A/C)).  
+
+```{r}
+enaAscendency(model)
+```
+
+### Trophic Analyses
+Ulanowicz introduced a number of flow analyses to consider food webs including the Lindeman Trophic Spine and the Cycle Distribution.  These analyses can be applied as follows.  Note that the cycle analysis is computationally intensive and will be slow on larger models. 
+
+#### Lindeman Spine
+```{r}
+tro = enaTroAgg(model)  
+attributes(tro)
+tro$ETL  # effective trophic levels
+tro$ns   # network metrics
+```
+
+#### Cycles
+```{r, echo = TRUE, fig5, fig.height = 3, fig.width = 5, fig.align = "center",fig.cap= "Flow over cycles of increasing lengths."}
+cyc = enaCycle(model)
+attributes(cyc)
+
+barplot(cyc$CycleDist, col = "blue", border = NA,
+        names.arg = 1:length(cyc$CycleDist),
+        ylab = "Flow",
+        xlab = "Cycle Length")
+```
+
+### Mean Trophic Level
+
+Another common analysis is to calculate the mean trophic level for species above a selected minimum threshold.  The *meanTrophicLevel* function was designed for this purpose.
+
+```{r}
+meanTrophicLevel(model, minTL = 2)
+meanTrophicLevel(model, minTL = 3.25)
+```
+
+## Storage Analysis
+
+Storage is the generic term for the amount of stuff "stored" in each node.  If ENA is being applied to a food web model, storage is often synonymous with biomass.  This analysis is parallel to the Input-Output flow analysis, but it take the storage (biomass) into account (see [Fath and Borrett 2006](http://dx.doi.org/10.1016/j.envsoft.2004.11.007), [Schramski et al. 2011](http://alpha.math.uga.edu/~caner/pub/Schramski,%20Kazanci,%20Tollner%202011%20NEA%20EcoNet%20v2.pdf).  
+
+```{r}
+enaStorage(model)
+```
+
+Note that the first element in the vector of network statistics is the total system storage (TSS), which for the Cone Springs model is 4058.4 kcal/m2.  
+
+The relationship between biodiversity and ecosystem functioning is an important topic in ecology.  In an ecosystem network, the nodes represent species, functional groups, or non-living resource books.  However, we can apply diversity metrics like the Shannon index to get an approximation of the system biodiversity (see Baird et al. 2011).  
+
+```{r}
+biomass = unpack(model)$X
+ShannonDiversity(biomass)
+```
+
+_H_ is the Shannon Diversity metric, $0 \le H_r \le 1$ is a measure of the evenness, and Hcentral (1 - Hr) is a centralization score that indicates how centralized or concentrated the storage is in a smaller number of nodes.
+
+```{r,echo = TRUE, fig6, fig.height = 3.5, fig.width = 5, fig.align = "center",fig.cap= "Rank ordered biomass values for the Cone Springs model."}
+par(las = 1, mar = c(7,6,0,0),
+        oma = c(0,1,1,1), xpd=TRUE)
+o = order(biomass, decreasing = TRUE)
+bp = barplot(biomass[o], col = "black", 
+             border = NA, names.arg = NA )
+mtext(bquote(paste("Biomass (kj ",m^-2,")")),
+        side = 2, las = 3, line = 3.5,
+        outer = FALSE)
+text(bp,-(.10 * max(biomass)),              # add node names
+     labels = (model%v%'vertex.names')[o],
+     srt = 45, adj = 1,
+     cex = 0.95)
+```
+
+## Environ Analysis
+
+The environ analysis function finds the 2 x n unit or realized environs for the model.  This is a realization of Patten's environ concept (Patten 1978, 1981).
+
+```{r}
+environs = enaEnviron(model)  # unit input and ouput environs
+attributes(environs)
+environs$input
+```
+
+## Control Analysis
+
+A common question in ecosystems concerns who controls whom across the intricate web of interactions.  This function applies the control analysis as described in [Schramski et al. (2006)](http://dx.doi.org/10.1016/j.ecolmodel.2005.10.012).
+
+```{r}
+enaControl(model)
+```
+
+## Impact Analyses
+
+There are two forms of what I am calling _Impact Analyses_: Utility Anlaysis and Mixed Trophic Impacts.  These analyses can be applied as follows.
+
+```{r}
+u = enaUtility(model)
+attributes(u)
+u$ns
+u$Relations.Table
+```
+ 
+```{r}
+mti = enaMTI(model)
+attributes(mti)
+mti$Relations.Table
+```
+
+# Other Functions
+
+There are more funcitons in **enaR** than are illustrated in this tutorial.  I have illustrated the primary analysis functions, but there are a couple of additional functions that might be of interest to the novice user, which I illustrate here.
+
+## Network Metrics
+
+If you want to get a vector of the network metrics from all of the main ENA functions, you can use the *get.ns* function.
+
+```{r}
+ns = get.ns(model)
+show(ns)
+length(ns)
+```
+
+This currently returns a large number (81) whole-network metrics, which can be overwhelming.  To get started, I recommend that new investigators pick a small set of metrics to focus upon.     
+
+## Run All
+
+Some investigators will appreciate the ease of the *enaAll* function.  This runs the most of the major analyses on a model and returns them in one action.  However, the function does not execute the *enaTroAgg()* or *enaCycle()* functions because these can be computationally intensive for larger models.  
+
+```{r}
+all = enaAll(model)
+attributes(all)
+attributes(all$flow)
+```
+
+## Uncertainty Analysis
+
+Applying the uncertainty analysis to a model is a more sophisticated topic that is really beyond the scope of this tutorial.  However, given the importance of the methods I include a brief introduction here.
+
+The uncertainty function uses Linear Inverse Modelling to sample the flow parameter space around the original flows in the model.  Thus, the user needs to specify an original model, some degree of uncertainty, and a number of samples to return.  The simplest way to start with this uncertainty analysis is to specify a single percent change that will be applied all of the flows.  As this is a Monte Carlo sampling process, we will a large number of samples (typically about 10,000) to adequately describe the parameter space, but the number depends on several factors and users should determine if this sample size is sufficient.  
+
+```{r}
+model.list = enaUncertainty(model, type = "percent", p.err = 25, iter = 10000)
+```
+
+For most models, this code will return 10,000 versions of the original models that have flow values +/- 25% of the original values, and the models should be at steady state.  The model.list is a list data object, with one model as each element of the list.  Note that this code will typically return a warning message, even if it works correctly.
+
+We can then apply a network analysis across the list.
+```{r}
+nsf = lapply(model.list, function(x) enaFlow(x)$ns)  # get the flow network metrics
+nsf = as.data.frame(do.call(rbind, nsf))  # reshape the data
+mean(nsf$TSTp)
+TSTp.ci95 = quantile(nsf$TSTp, c(0.025,0.975))
+show(TSTp.ci95)
+```
+
+More advanced tutorials on the enaUncertainty function are available on the enaR project [GitHub Wiki](https://github.com/SEELab/enaR/wiki).
+
+
+# Exercises
+
+1. Find the number of nodes and connectance of the _Swartkops Estuary_ model.
+
+2. Create a barplot of the throughflow vector of the _Bothnian Sea_ model.
+
+3. Plot the node throughflow vs. the effective trophic levels for the _Okefenokee Swamp_ food web model.  
+
+4. Find the APL, A/C (ASC.CAP), FCI, and TSS of the _Florida Bay (wet)_ model.
+
+5. Plot the node storage (biomass) versus estimated trophic levels for the _Gulf of Maine_ model.
+
+
+
