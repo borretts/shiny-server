@@ -31,7 +31,7 @@ server <- function(input, output, session) {
   })
   output$Logistic_plot <- renderPlot({
     initial.time = 0         # starting time of the simulation
-    final.time = 100         # ending time of the simulation
+    final.time = 150         # ending time of the simulation
     tspan = seq(initial.time, final.time, by = 1)
     
     K = input$K_input
@@ -51,21 +51,23 @@ server <- function(input, output, session) {
     exact2 = K2 / (1 + (((K2-N2)/N2) * exp( -( r2 ) * tspan )))
     
     
-    par(mfrow = c(2,1))
-    
+    #par(mfrow = c(2,1))
+    par(las = 1)
     plot(tspan,exact,
-         ylim = c(0,500),
+         ylim = c(0,600),
          xlab = "Time",
          ylab = "Population",
-         type = "b",
+         type = "l", lwd = 3,
          col = "green"
     )
-    plot(tspan,exact2,
-         ylim = c(0,500),
-         xlab = "Time",
-         ylab = "Population",
-         type = "b",
+    points(tspan,exact2,
+    #     ylim = c(0,500),
+    #     xlab = "Time",
+    #     ylab = "Population",
+         type = "l", lwd = 3,
          col = "blue"
     )  
-  }, height = 850, width = 600)
+    legend("topright", legend = c("Population 1","Population 2"), 
+           lwd = 3, lty = 1, col = c("green","blue"), bty = "n")
+  }, height = 400, width = 500)
 }
