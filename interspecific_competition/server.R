@@ -60,19 +60,52 @@ server <- function(input, output, session) {
               parameters
     )
     
-    matplot(out[,2:3],
+    opar = par(las = 1, mfrow = c(2,1), oma = c(0,0,0,0), mar = c(4,4,3,1))
+    # frist plot
+    matplot(out[,1],out[,2:3],
             lwd = 4,
             lty = 1:2, 
             col = c("burlywood4", "darkgray"),
             xlab = "Time (years)",
             ylab = "Population Size (individuals)",
-            type = "l")
+            type = "l",
+            main = "Population Temporal Dynamics")
+    points(0,out[1,2],
+           pch = 20, cex = 2, col = "orange")
+    points(0,out[1,3],
+           pch = 20, cex = 2, col = "orange")
     legend("topright",
            legend = c("Coyote", "Gray Wolf"),
            lty = c(1, 2),
            lwd = 4,
            col = c("burlywood4", "darkgray"),
-           bty = "l")
-    #create legend for visual identification
-  })
+           bty = "n")
+    
+    # state-space plot
+    plot(out[,2],out[,3], type = "l", col = "blue",
+         lwd = 2, 
+         ylim = c(0,500),
+         xlim = c(0,500),
+         xlab = "Coyote Population Density (N1)",
+         ylab = "Grey Wolf Density (N2)",
+         main = "State-Space Plot with Isoclines and Dynamics")
+    points(out[1,2],out[1,3],
+           pch = 20, cex = 2, col = "orange")
+    # coyote isocline
+    points(c(input$K1_input,0), c(0,input$K1_input/input$alpha_input),
+           type = "l",
+          lwd = 2, col = "burlywood4")
+    points(c(0,input$K2_input/input$beta_input ), c(input$K2_input, 0),
+           type = "l",
+           lwd = 2, col = "darkgrey")
+    abline(h=0, lwd = 0.5, col = "lightgrey")
+    abline(v=0, lwd = 0.5, col = "lightgrey")
+    legend("topright",
+           legend = c("Population Dynamics","Coyote ZNGI", "Gray Wolf ZNGI"),
+           lty = c(1, 1, 2),
+           lwd = 4,
+           col = c("blue", "burlywood4", "darkgray"),
+           bty = "n")
+  
+  }, height = 600, width = 500)
 }
